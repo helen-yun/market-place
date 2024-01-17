@@ -9,10 +9,10 @@ logging:
     max-size: 500MB
 spring:
   datasource:
-    url: jdbc:mariadb://tb.pongift.com:8806/marketplace?autoReconnect=true&noAccessToProcedureBodies=true&useSSL=false&allowMultiQueries=true&serverTimezone=UTC&characterEncoding=utf8
+    url:
     driver-class-name: org.mariadb.jdbc.Driver
-    username: market0709
-    password: market001
+    username:
+    password:
   main:
     allow-bean-definition-overriding: true
 server:
