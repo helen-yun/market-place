@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pongift20.marketplace.backend.security.mapper.ChannelApiInfoMapper">
+    <select id="selectProviderSeqByApiKeyAndSecretAndIp" resultType="Long">
+        WITH API AS (SELECT api_seq, provider_seq
+                     FROM channel_api_info
+                     WHERE api_key = #{apiKey}
+                       AND api_secret = #{apiSecret})
+           , IP AS (SELECT allow
+                    FROM channel_ip_access_control
+                    WHERE access_ip = #{accessIp}
+                      AND allow = 1
+                      AND api_seq = (SELECT api_seq FROM API))
+
+        SELECT provider_seq
+        FROM provider
+        WHERE provider_seq = (SELECT provider_seq FROM API)
+          AND 1 = (SELECT allow FROM IP)
+    </select>
+</mapper>

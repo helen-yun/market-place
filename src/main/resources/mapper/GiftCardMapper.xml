@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pongift20.marketplace.backend.giftcard.mapper.GiftCardMapper">
+    <select id="selectGiftWallet" resultType="giftWallet">
+        SELECT *
+        FROM gift_wallet
+        WHERE gift_wallet.user_uid = #{userUid}
+        ORDER BY gift_wallet_seq DESC;
+    </select>
+
+    <select id="selectGiftCardList" resultType="giftCard">
+        SELECT gift_wallet.gift_wallet_seq
+        , gift_wallet.gift_url
+        , gift_wallet.gift_expiry_date
+        , gift_wallet.gift_no_used
+        , gift_wallet.goods_name
+        , goods.goods_thumbnail_src
+        , store.service_name
+        FROM gift_wallet
+        INNER JOIN goods ON gift_wallet.goods_seq = goods.goods_seq
+        INNER JOIN store ON goods.store_seq = store.store_seq
+        WHERE gift_wallet.user_uid = #{userUid} AND gift_wallet.gift_type = 'buy'
+        AND gift_no_used = #{giftNoUsed}
+        <if test="lastSeq > 0">
+            AND gift_wallet.gift_wallet_seq <![CDATA[ < ]]> #{lastSeq}
+        </if>
+        ORDER BY gift_wallet_seq DESC
+        LIMIT #{pageSize}
+    </select>
+
+    <select id="countGiftWalletList" resultType="long">
+        SELECT COUNT(*)
+        FROM gift_wallet
+        WHERE user_uid = #{userUid}
+          AND gift_no_used = #{giftNoUsed}
+          AND gift_wallet.gift_type = 'buy'
+    </select>
+
+    <select id="selectGiftCardDetail" resultType="giftCard">
+        SELECT gift_wallet.gift_wallet_seq
+             , gift_wallet.gift_url
+             , gift_wallet.gift_expiry_date
+             , gift_wallet.gift_no_used
+             , gift_wallet.goods_name
+             , goods.goods_thumbnail_src
+             , store.service_name
+        FROM gift_wallet
+                 INNER JOIN goods ON gift_wallet.goods_seq = goods.goods_seq
+                 INNER JOIN store ON goods.store_seq = store.store_seq
+        WHERE gift_wallet.user_uid = #{userUid}
+          AND gift_wallet.gift_type = 'buy'
+          AND gift_wallet.gift_wallet_seq = #{giftWalletSeq}
+        LIMIT 1
+    </select>
+
+    <insert id="insertGiftWallet">
+        INSERT INTO gift_wallet
+        ( gift_no
+        , user_uid
+        , goods_seq
+        , goods_name
+        , gift_url
+        , gift_expiry_date
+        , gift_type)
+        VALUES ( #{giftNo}
+               , #{userUid}
+               , #{goodsSeq}
+               , #{goodsName}
+               , #{giftUrl}
+               , #{giftExpiryDate}
+               , #{giftType})
+    </insert>
+
+    <insert id="insertGiftWalletList">
+        INSERT INTO gift_wallet
+        ( gift_no
+        , user_uid
+        , goods_seq
+        , goods_name
+        , gift_url
+        , gift_expiry_date
+        , gift_type
+        , order_no)
+        VALUES
+        <foreach collection="giftWalletDtoList" item="item" separator=",">
+            ( #{item.giftNo}
+            , #{item.userUid}
+            , #{item.goodsSeq}
+            , #{item.goodsName}
+            , #{item.giftUrl}
+            , #{item.giftExpiryDate}
+            , #{item.giftType}
+            , #{item.orderNo})
+        </foreach>
+    </insert>
+
+    <update id="updateGiftWalletUsed">
+        UPDATE
+            gift_wallet
+        SET gift_no_used = #{giftNoUsed}
+          , modified_at  = now()
+        WHERE gift_no = #{giftNo}
+    </update>
+
+    <update id="extendGiftCardExpirationDate">
+        UPDATE
+            gift_wallet
+        SET gift_expiry_date = #{expiryDate}
+        WHERE gift_no = #{giftNo}
+    </update>
+</mapper>

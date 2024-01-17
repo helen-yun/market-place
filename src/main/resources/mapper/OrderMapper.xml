@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pongift20.marketplace.backend.order.mapper.OrderMapper">
+    <select id="selectOrderByUserUid" resultType="orderHistory">
+        SELECT order_history.*
+        , store.service_name
+        FROM order_history
+        INNER JOIN store
+        ON store.store_seq = order_history.store_seq
+        WHERE user_uid = #{userUid}
+        <if test="lastSeq > 0">
+            AND order_history_seq <![CDATA[ < ]]> #{lastSeq}
+        </if>
+        ORDER BY order_history.modified_at DESC
+        LIMIT #{pageSize}
+    </select>
+
+    <select id="selectNotSendOrderHistoryList" resultType="orderHistory">
+        SELECT *
+        FROM order_history
+        WHERE order_state = 'purchase'
+          AND order_send_status = false
+        ORDER BY order_history_seq
+    </select>
+
+    <insert id="insertStandByOrder">
+        INSERT INTO order_standby
+        ( user_uid
+        , goods_seq
+        , store_seq
+        , order_no
+        , order_buy_type
+        , order_payment_amount
+        , order_count
+        , store_name
+        , goods_name
+        , goods_sale_price
+        , goods_retail_price
+        , goods_modified_at
+        , created_at)
+        VALUES ( #{userUid}
+        , #{goodsSeq}
+        , #{storeSeq}
+        , #{orderNo}
+        , #{orderBuyType}
+        , #{orderPaymentAmount}
+        , #{orderCount}
+        , #{storeName}
+        , #{goodsName}
+        , #{goodsSalePrice}
+        , #{goodsRetailPrice}
+        , #{goodsModifiedAt}
+        , #{createdAt})
+        <selectKey resultType="long" keyProperty="orderStandBySeq" keyColumn="order_standby_seq" order="AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
+
+    <insert id="insertOrderHistory">
+        INSERT INTO order_history
+        ( user_uid
+        , goods_seq
+        , store_seq
+        , store_name
+        , goods_name
+        , goods_sale_price
+        , goods_retail_price
+        , goods_modified_at
+        , order_no
+        , order_buy_type
+        , order_payment_amount
+        , order_transact_no
+        , order_approve_no
+        , order_state
+        , order_count
+        , created_at
+        , modified_at)
+        VALUES ( #{userUid}
+        , #{goodsSeq}
+        , #{storeSeq}
+        , #{storeName}
+        , #{goodsName}
+        , #{goodsSalePrice}
+        , #{goodsRetailPrice}
+        , #{goodsModifiedAt}
+        , #{orderNo}
+        , #{orderBuyType}
+        , #{orderPaymentAmount}
+        , #{orderTransactNo}
+        , #{orderApproveNo}
+        , #{orderState}
+        , #{orderCount}
+        , #{createdAt}
+        , #{modifiedAt})
+        <selectKey resultType="long" keyProperty="orderHistorySeq" keyColumn="order_history_seq" order="AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
+
+    <update id="updateOrderHistory">
+        UPDATE
+        order_history
+        SET modified_at = now()
+        <if test="orderSendStatus != false">
+            , order_send_status = #{orderSendStatus}
+        </if>
+        <if test="orderState != null">
+            , order_state = #{orderState}
+        </if>
+        <if test="orderState == 'return'">
+            , returned_at = now()
+        </if>
+        WHERE order_no = #{orderNo}
+    </update>
+
+    <update id="updateGiftCardWallet">
+        UPDATE gift_wallet
+        SET gift_no_used = '3'
+        WHERE order_no = #{orderNo}
+    </update>
+
+    <select id="selectStandByOrderByOrderNo" resultType="orderStandBy">
+        SELECT *
+        FROM order_standby
+        WHERE order_no = #{orderNo}
+    </select>
+
+    <select id="selectOrderHistoryByOrderNo" resultType="orderHistory">
+        SELECT order_history.*
+             , store.service_name
+        FROM order_history
+                 INNER JOIN store
+                            ON store.store_seq = order_history.store_seq
+        WHERE order_no = #{orderNo}
+        <if test="userUid != null">
+            AND user_uid = #{userUid}
+        </if>
+    </select>
+
+    <select id="createOrderNo" parameterType="orderNo"
+            statementType="CALLABLE">
+        {CALL create_order_no('01'
+            , #{randomNo}
+            , #{orderNo,mode=OUT,jdbcType=VARCHAR}
+            , #{resultCode,mode=OUT,jdbcType=VARCHAR}
+            , #{resultMsg,mode=OUT,jdbcType=VARCHAR})}
+    </select>
+
+    <insert id="insertStandByTradeList" parameterType="java.util.List">
+        INSERT INTO trade_standby
+        ( order_standby_seq
+        , trade_no
+        , trade_receiver_name
+        , trade_receiver_phone_number
+        , created_at)
+        VALUES
+        <foreach collection="tradeStandByDtoList" item="item" separator=",">
+            ( #{item.orderStandBySeq}
+            , #{item.tradeNo}
+            , #{item.tradeReceiverName}
+            , #{item.tradeReceiverPhoneNumber}
+            , now())
+        </foreach>
+    </insert>
+
+    <insert id="insertTradeHistoryList" parameterType="java.util.List">
+        INSERT INTO trade_history
+        ( order_history_seq
+        , trade_no
+        , trade_receiver_phone_number
+        , created_at)
+        VALUES
+        <foreach collection="tradeHistoryDtoList" item="item" separator=",">
+            ( #{item.orderHistorySeq}
+            , #{item.tradeNo}
+            , #{item.tradeReceiverPhoneNumber}
+            , now())
+        </foreach>
+    </insert>
+
+    <select id="selectTradeStandByListByOrderStandBySeq" resultType="tradeStandBy">
+        SELECT *
+        FROM trade_standby
+        WHERE order_standby_seq = #{orderStandBySeq}
+    </select>
+
+    <select id="selectTradeHistoryListByOrderHistorySeq" resultType="tradeHistory">
+        SELECT *
+        FROM trade_history
+        WHERE order_history_seq = #{orderHistorySeq}
+    </select>
+</mapper>

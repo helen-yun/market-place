@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pongift20.marketplace.backend.category.mapper.CategoryMapper">
+    <select id="selectCategoryGoods" resultType="categoryGoods" parameterType="String">
+        WITH RECURSIVE ctg AS (
+        (
+            SELECT
+                category_id, parent_id, category_name, enabled, sort_cost, 1 as depth
+            FROM
+                category_goods
+            where 1=1
+                <if test="categoryId != null and categoryId != ''">
+                    and category_id = #{categoryId}
+                </if>
+        )
+        UNION ALL
+
+        SELECT
+            cte.category_id, cte.parent_id, cte.category_name, cte.enabled, cte.sort_cost, g.depth + 1
+        FROM
+            ctg g
+        INNER JOIN
+            category_goods cte
+        ON
+            g.category_id = cte.parent_id
+        )
+        SELECT
+            *
+        FROM
+            ctg
+        where ctg.enabled = 1
+            <if test="categoryId == null or categoryId == ''">
+                and ctg.parent_id is null
+            </if>
+        order by sort_cost, category_id
+    </select>
+
+    <select id="selectCategoryGoodsAll" resultType="categoryGoods" parameterType="String">
+        WITH RECURSIVE tree AS (
+
+        SELECT category_id, category_name, parent_id, enabled, 1 AS depth
+        FROM category_goods
+        WHERE parent_id IS NULL
+
+        UNION ALL
+
+        SELECT c.category_id, c.category_name, c.parent_id , c.enabled, ct.depth + 1
+        FROM category_goods c
+        INNER JOIN tree ct ON c.parent_id = ct.category_id
+        WHERE ct.depth &lt; 3
+        )
+        SELECT *
+        FROM
+            tree
+         where 1=1
+            <if test="type == null or type == ''">
+                AND tree.enabled = 1
+            </if>
+        order by category_id
+    </select>
+
+    <select id="selectCategoryGoodsDtl" resultType="categoryGoods" parameterType="String">
+        WITH RECURSIVE tree AS (
+
+            SELECT category_id, category_name, parent_id, enabled, 1 AS depth
+            FROM category_goods
+            WHERE parent_id IS NULL
+
+            UNION ALL
+
+            SELECT c.category_id, c.category_name, c.parent_id , c.enabled, ct.depth + 1
+            FROM category_goods c
+                     INNER JOIN tree ct ON c.parent_id = ct.category_id
+            WHERE ct.depth &lt; 3
+        )
+        SELECT
+            category_id, category_name, parent_id
+             , enabled, depth
+        FROM
+            tree
+        where
+            tree.category_id = #{categoryId}
+        LIMIT 1
+    </select>
+
+    <select id="searchGoodsCate" resultType="categoryGoods">
+        WITH SEARCH_GOODS_SEQ AS (SELECT goods_seq
+                                  FROM goods
+                                  WHERE goods_name LIKE CONCAT('%', #{goodsName}, '%')
+                                    AND enabled = true)
+           , CATE_ID AS (SELECT category_id
+                         FROM category_goods_reference
+                         WHERE goods_seq IN (SELECT goods_seq FROM SEARCH_GOODS_SEQ))
+
+        SELECT *
+        FROM category_goods
+        WHERE category_id IN (SELECT category_id FROM CATE_ID)
+          AND enabled = true
+        order by sort_cost, category_id
+    </select>
+
+    <insert id="insertGoodsCategory">
+        INSERT INTO category_goods
+            (category_id, parent_id, category_name, enabled, sort_cost)
+        VALUES (#{categoryId}, #{categoryOid}, #{categoryName}, #{enabled}, (select IFNULL(MAX(sort_cost) + 1, 1) from category_goods goods))
+    </insert>
+
+    <update id="updateGoodsCategory">
+        UPDATE
+            category_goods
+        SET category_id   = #{categoryId}
+          , category_name = #{categoryName}
+          , enabled       = #{enabled}
+        WHERE category_id = #{categoryOid}
+    </update>
+
+    <delete id="deleteGoodsCategory">
+        DELETE
+        FROM category_goods
+        WHERE category_id = #{categoryId}
+    </delete>
+
+    <select id="selectCategoryJuso" resultType="categoryJuso">
+        SELECT
+        juso_code, addr1, addr2, addr3, display_name, enabled
+        FROM
+        category_juso
+        WHERE enabled = 1
+        <choose>
+            <when test="addr1 == null">
+                AND addr1 is not null
+                AND addr2 is null
+            </when>
+            <when test="addr2 != null">
+                AND addr1 = #{addr1}
+                AND addr2 = #{addr2}
+            </when>
+            <otherwise>
+                AND addr1 = #{addr1}
+                AND addr3 is null
+            </otherwise>
+        </choose>
+        ORDER BY juso_code
+    </select>
+
+    <select id="selectCategoryJusoAll" resultType="categoryJuso">
+        SELECT distinct
+            cj.juso_code, cj.addr1, cj.addr2, cj.addr3, cj.display_name, cj.enabled
+        FROM category_juso cj
+        join store st
+        on cj.juso_code = st.juso_code
+        join goods g
+        on st.store_seq = g.store_seq
+        WHERE g.enabled = 1
+        ORDER BY juso_code
+    </select>
+
+    <select id="selectCategoryJusoList" resultType="categoryJuso">
+        SELECT area.*
+        FROM (
+                 SELECT  juso_code, addr1, addr2, addr3, display_name, enabled, '#' as parentId, 1 AS depth
+                 FROM category_juso c1
+                 WHERE addr2 IS NULL AND addr3 IS NULL
+
+                 UNION ALL
+
+                 SELECT  c2.juso_code,c2.addr1, c2.addr2, c2.addr3, c2.display_name, c2.enabled, c1.juso_code as parentId, 2 AS depth
+                 FROM category_juso c2
+                          INNER JOIN (
+                     SELECT addr1, juso_code
+                     FROM category_juso
+                     WHERE addr2 IS NULL AND addr3 IS NULL
+                 ) c1 ON c1.addr1 = c2.addr1
+                 WHERE c2.addr2 is not null and c2.addr3 is null
+
+                 UNION ALL
+
+                 SELECT  c3.juso_code,c3.addr1, c3.addr2, c3.addr3, c3.display_name, c3.enabled, c2.juso_code as parentId, 3 AS depth
+                 FROM category_juso c3
+                          INNER JOIN (
+                     SELECT addr1, addr2, addr3, juso_code
+                     FROM category_juso
+                     WHERE addr2 IS not NULL AND addr3 IS NULL
+                 ) c2 ON c2.addr1 = c3.addr1 and c2.addr2 = c3.addr2
+                 where c3.addr3 is not null
+             )area
+        order by juso_code
+    </select>
+
+    <select id="selectCategoryAreasDtl" resultType="categoryJuso">
+        SELECT area.*
+        FROM (
+                 SELECT  juso_code, addr1, addr2, addr3, display_name, enabled, '#' as parentId, 1 AS depth
+                 FROM category_juso c1
+                 WHERE addr2 IS NULL AND addr3 IS NULL
+
+                 UNION ALL
+
+                 SELECT  c2.juso_code,c2.addr1, c2.addr2, c2.addr3, c2.display_name, c2.enabled, c1.juso_code as parentId, 2 AS depth
+                 FROM category_juso c2
+                          INNER JOIN (
+                     SELECT addr1, juso_code
+                     FROM category_juso
+                     WHERE addr2 IS NULL AND addr3 IS NULL
+                 ) c1 ON c1.addr1 = c2.addr1
+                 WHERE c2.addr2 is not null and c2.addr3 is null
+
+                 UNION ALL
+
+                 SELECT  c3.juso_code,c3.addr1, c3.addr2, c3.addr3, c3.display_name, c3.enabled, c2.juso_code as parentId, 3 AS depth
+                 FROM category_juso c3
+                          INNER JOIN (
+                     SELECT addr1, addr2, addr3, juso_code
+                     FROM category_juso
+                     WHERE addr2 IS not NULL AND addr3 IS NULL
+                 ) c2 ON c2.addr1 = c3.addr1 and c2.addr2 = c3.addr2
+                 where c3.addr3 is not null
+             )area
+        where area.juso_code = #{jusoCode}
+        order by juso_code
+        LIMIT 1
+    </select>
+
+    <insert id="insertCategoryJuso">
+        insert into
+            category_juso
+                (juso_code, addr1, addr2, addr3, display_name)
+        values
+                (#{jusoCode}, #{addr1}, #{addr2}, #{addr3}, #{displayName})
+    </insert>
+
+    <update id="updateCategoryJuso">
+        update
+            category_juso
+        set
+           juso_code = #{jusoCode}
+          ,addr1 = #{addr1}
+          ,addr2 = #{addr2}
+          ,addr3 = #{addr3}
+          ,enabled = #{enabled}
+          ,display_name = #{displayName}
+        where
+            juso_code = #{categoryOid}
+    </update>
+
+    <delete id="deleteCategoryJuso">
+        delete from
+            category_juso
+        where
+            juso_code = #{categoryOid}
+    </delete>
+
+    <select id="selectCategoryAreasInfoList" resultType="categoryJuso">
+        SELECT *
+        FROM (
+                 SELECT addr1, addr2, addr3, juso_code, 0 as depth
+                 FROM category_juso
+                 WHERE juso_code = #{jusoCode}
+
+                 UNION ALL
+
+                 SELECT addr1, addr2, addr3, juso_code, 1 as depth
+                 FROM category_juso
+                 WHERE addr1 = display_name
+
+                 UNION ALL
+
+                 SELECT addr1, addr2, addr3, juso_code, 2 as depth
+                 FROM category_juso
+                 WHERE addr1 = (SELECT addr1 FROM category_juso WHERE juso_code = #{jusoCode})
+                   and addr2 = display_name
+
+                 UNION ALL
+
+                 SELECT addr1, addr2, addr3, juso_code, 3 as depth
+                 FROM category_juso
+                 WHERE addr2 = (SELECT addr2 FROM category_juso WHERE juso_code = #{jusoCode})
+                   and addr3 = display_name
+             )area
+        ORDER BY depth;
+    </select>
+</mapper>

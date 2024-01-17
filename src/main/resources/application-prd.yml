@@ -1,0 +1,53 @@
+logging:
+  level:
+    ROOT: INFO
+    com.pongift20: INFO
+    org.apache.ibatis: DEBUG
+  file:
+    name: /home/centos/pongift-marketplace/logs/pongift-marketplace.log
+    max-history: 31
+    max-size: 500MB
+spring:
+  datasource:
+    url: jdbc:mariadb://pongiftplus-prod-mariadb.ca9h19s6ha39.ap-northeast-2.rds.amazonaws.com:8806/marketplace?autoReconnect=true&noAccessToProcedureBodies=true&useSSL=false&allowMultiQueries=true&serverTimezone=UTC&characterEncoding=utf8
+    driver-class-name: org.mariadb.jdbc.Driver
+    username: market0709
+    password: market001
+  main:
+    allow-bean-definition-overriding: true
+server:
+  port: '15111'
+  servlet:
+    context-path: /api
+    session:
+      cookie:
+        name: MARKETPLACE_SESSIONID
+        secure: true
+        http-only: true
+      timeout: 1800
+      persistent: false
+mybatis:
+  type-aliases-package: com.pongift20.marketplace.backend.goods.model.dto,
+    com.pongift20.marketplace.backend.user.model.dto,
+    com.pongift20.marketplace.backend.order.model.dto,
+    com.pongift20.marketplace.backend.category.model.dto,
+    com.pongift20.marketplace.backend.giftcard.model.dto,
+    com.pongift20.marketplace.backend.store.model.dto,
+    com.pongift20.marketplace.backend.security.model.dto,
+    com.pongift20.marketplace.backend.partner.kyobo.model.dto
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    lazyLoadingEnabled: true
+    aggressiveLazyLoading: false
+    mapUnderscoreToCamelCase: true
+pongift:
+  api-host: http://internal-pongiftplus-prod-private-alb-1238147058.ap-northeast-2.elb.amazonaws.com:914/
+  barcode-host: //auth.pongiftplus.com/view/
+  pay-host: https://pay2.pongift.com/
+  main-page: //marketplace.pongift.com/
+  error-page: //marketplace.pongift.com/error
+  terms-page: //marketplace.pongift.com/join/terms?partner=kyobo
+kyobo:
+  url: www.kyobo.com
+  api-host: https://api.ext-open-service.com
+  iv: 20230831192212

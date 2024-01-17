@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pongift20.marketplace.backend.goods.mapper.GoodsMapper">
+    <select id="selectGoodsList" resultType="goods">
+        SELECT *
+        FROM (
+        SELECT
+        goods.*
+        , store.store_name, store.service_name
+        , TRIM(CONCAT(IFNULL(category_juso.addr1, ''), SPACE(1), IFNULL(category_juso.addr2, ''), SPACE(1), IFNULL(category_juso.addr3, ''))) as goodsJuso
+        FROM goods
+        INNER JOIN store
+        ON goods.store_seq = store.store_seq
+        LEFT JOIN category_juso
+        ON store.juso_code = category_juso.juso_code
+        <if test="category != null">
+            INNER JOIN category_goods_reference cgr
+            ON goods.goods_seq = cgr.goods_seq
+            AND cgr.category_id = #{category}
+        </if>
+        <where>
+            <if test="keyword != null">
+                AND goods_name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        <if test="sortBy == 'salePrice'">
+            <choose>
+                <when test="sortOrder == 'desc'">
+                    ORDER BY goods_sale_price DESC, goods_seq DESC
+                </when>
+                <otherwise>
+                    ORDER BY goods_sale_price, goods_seq DESC
+                </otherwise>
+            </choose>
+        </if>
+        <if test="sortBy == 'goodsSeq'">
+            <choose>
+                <when test="sortOrder == 'desc'">
+                    ORDER BY goods_seq DESC
+                </when>
+                <otherwise>
+                    ORDER BY goods_seq
+                </otherwise>
+            </choose>
+        </if>
+        LIMIT 1000
+        ) AS R
+        WHERE enabled = 1
+        <if test="addr1 != null">
+            AND store_seq in
+            (
+            SELECT store_seq FROM store s WHERE juso_code in
+                (
+                    SELECT juso_code FROM category_juso cj WHERE addr1 = #{addr1}
+                    <if test="addr2 != null">
+                       AND addr2 = #{addr2}
+                    </if>
+                    <if test="addr3 != null">
+                        AND addr3 = #{addr3}
+                    </if>
+                )
+            )
+        </if>
+        <if test="lastId > 0 and lastValue != null">
+            <if test="sortBy == 'salePrice'">
+                <choose>
+                    <when test="sortOrder == 'desc'">
+                        AND (goods_sale_price = #{lastValue} AND goods_seq <![CDATA[ < ]]> #{lastId})
+                        OR goods_sale_price <![CDATA[ < ]]> #{lastValue}
+                    </when>
+                    <otherwise>
+                        AND (goods_sale_price = #{lastValue} AND goods_seq <![CDATA[ > ]]> #{lastId})
+                        OR goods_sale_price <![CDATA[ > ]]> #{lastValue}
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="sortBy == 'goodsSeq'">
+                <choose>
+                    <when test="sortOrder == 'desc'">
+                        AND goods_seq <![CDATA[ < ]]> #{lastId}
+                    </when>
+                    <otherwise>
+                        AND goods_seq <![CDATA[ > ]]> #{lastId}
+                    </otherwise>
+                </choose>
+            </if>
+        </if>
+        <if test="sortBy == 'salePrice'">
+            <choose>
+                <when test="sortOrder == 'desc'">
+                    ORDER BY goods_sale_price DESC, goods_seq DESC
+                </when>
+                <otherwise>
+                    ORDER BY goods_sale_price, goods_seq DESC
+                </otherwise>
+            </choose>
+        </if>
+        <if test="sortBy == 'goodsSeq'">
+            <choose>
+                <when test="sortOrder == 'desc'">
+                    ORDER BY goods_seq DESC
+                </when>
+                <otherwise>
+                    ORDER BY goods_seq
+                </otherwise>
+            </choose>
+        </if>
+        LIMIT #{pageSize}
+    </select>
+    <select id="countGoodsList" resultType="long">
+        SELECT COUNT(*)
+        FROM goods
+        <if test="category != null">
+            INNER JOIN category_goods_reference cgr
+            ON goods.goods_seq = cgr.goods_seq
+            AND cgr.category_id = #{category}
+        </if>
+        WHERE goods.enabled = 1
+        <if test="addr1 != null">
+            AND goods.store_seq in
+                (
+                    SELECT store_seq FROM store s WHERE juso_code in
+                    (
+                        SELECT juso_code FROM category_juso cj WHERE addr1 = #{addr1}
+                        <if test="addr2 != null">
+                            AND addr2 = #{addr2}
+                        </if>
+                        <if test="addr3 != null">
+                            AND addr3 = #{addr3}
+                        </if>
+                )
+            )
+        </if>
+        <if test="keyword != null">
+            AND goods_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+    </select>
+    <select id="selectGoodsDetail" resultType="goods" parameterType="long">
+        SELECT goods.*
+             , store.store_name, store.service_name
+        FROM goods
+                 INNER JOIN store ON goods.store_seq = store.store_seq
+        WHERE enabled = 1
+          AND goods.goods_seq = #{goodsSeq}
+        LIMIT 1
+    </select>
+    <select id="checkStore" resultType="long">
+        select store_seq
+        from store
+        where store_seq = #{storeSeq} and store_name = #{storeName}
+    </select>
+    <insert id="insertGoods">
+        insert into goods
+            (store_seq, goods_name, goods_thumbnail_src, goods_info_src
+            , goods_store_info_src, goods_sale_price, goods_retail_price
+            , goods_stock_count, goods_html, created_at, modified_at, enabled)
+        values
+            (#{storeSeq}, #{goodsNm}, #{goodsImage}, #{infoUrl}
+            , #{storeUrl}, #{salePrice}, #{retailPrice}
+            , #{stockCnt}, #{html}, now(), null, 1)
+        <selectKey resultType="long" keyProperty="goodsSeq" order="AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
+    <insert id="insertGoodsCategory">
+        insert into category_goods_reference
+            (category_id, goods_seq)
+        values
+            (#{category}, #{goodsSeq})
+    </insert>
+    <update id="updateGoods">
+        update goods
+        set
+            goods_name = #{goodsNm}, goods_thumbnail_src = #{goodsImage}, goods_info_src = #{infoUrl}
+            , goods_store_info_src = #{storeUrl}, goods_sale_price = #{salePrice}, goods_retail_price = #{retailPrice}
+            , goods_stock_count = #{stockCnt}, goods_html = #{html}, enabled = #{enabled}, modified_at= now()
+        where
+            goods_seq = #{goodsId}
+    </update>
+    <update id="updateGoodsCategory">
+        update category_goods_reference
+        set category_id = #{category}
+        where goods_seq = #{goodsId}
+    </update>
+    <select id="selectGoodsDetailFromGw" resultType="goods" parameterType="long">
+        SELECT goods.*, store.store_seq
+        FROM goods
+        INNER JOIN store
+        on goods.store_seq = store.store_seq
+        WHERE goods.goods_seq = #{goodsId}
+        LIMIT 1
+    </select>
+    <update id="updateGoodsExhibits">
+        UPDATE goods
+        SET goods_stock_count = 0, enabled = 0
+        WHERE goods_seq = #{goodsId}
+    </update>
+</mapper>

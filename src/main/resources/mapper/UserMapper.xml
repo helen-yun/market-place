@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pongift20.marketplace.backend.user.mapper.UserMapper">
+    <select id="findUserByLoginId" resultType="user">
+        SELECT users.user_uid
+             , users.enabled
+             , profile.user_alias
+             , profile.user_name
+             , profile.user_phone_number
+             , auth.login_password
+        FROM users
+                 INNER JOIN user_profile profile
+                            ON users.user_uid = profile.user_uid
+                 INNER JOIN auth_pongift auth
+                            ON users.user_uid = auth.user_uid
+        WHERE enabled = 1
+          AND auth.login_id = #{loginId}
+    </select>
+    <select id="selectUserByUserUid" resultType="user">
+        SELECT users.user_uid
+             , users.enabled
+             , profile.user_alias
+             , profile.user_name
+             , profile.user_phone_number
+        FROM users
+                 INNER JOIN user_profile profile
+                            ON users.user_uid = profile.user_uid
+        WHERE enabled = 1
+          AND users.user_uid = #{userUid}
+    </select>
+
+    <insert id="insertUsers">
+        insert into users(user_uid, enabled, account_provider)
+        values (#{userUid}, 1, #{accountProvider})
+    </insert>
+
+    <insert id="insertUserProfile">
+        insert into user_profile
+        (user_uid, user_alias, user_name, user_phone_number, term_agree, term_agree_at, create_at)
+        values
+            (#{userUid}, #{alias}, #{userName}, #{userPhoneNumber}, 1, now(), now())
+    </insert>
+
+    <update id="updateUserProfile">
+        update user_profile
+        set user_phone_number = #{userPhoneNumber}, user_name = #{userName}, modify_at = now()
+        where user_uid = #{userUid}
+    </update>
+</mapper>

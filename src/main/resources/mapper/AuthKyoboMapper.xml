@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.pongift20.marketplace.backend.partner.kyobo.mapper.AuthKyoboMapper">
+    <select id="selectAuthKyobo" resultType="authKyobo" parameterType="String">
+        select * from auth_kyobo
+        where user_sub = #{userSub}
+    </select>
+
+    <insert id="insertAuthKyobo">
+        insert into auth_kyobo
+            (user_sub, user_uid, user_name, user_contact, create_at)
+        values
+            (#{userSub}, #{userUid}, #{userName}, #{userContact}, now())
+    </insert>
+
+    <update id="updateAuthKyobo">
+        update auth_kyobo
+        set user_contact = #{userContact}, user_name = #{userName}, modify_at = now()
+        where user_sub = #{userSub}
+    </update>
+</mapper>
